@@ -3,131 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP-Nexus | Smart IP Insights</title>
+    <title>IP-Insight | Professional IP Geolocation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: white; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .gradient-text { background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0b0e14; color: #e2e8f0; }
+        .glass-card { background: rgba(23, 27, 34, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.25rem; }
+        #map { height: 300px; border-radius: 1rem; border: 1px solid rgba(255, 255, 255, 0.1); }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen flex flex-col">
 
-    <nav class="p-6 flex justify-between items-center max-w-6xl mx-auto">
-        <div class="flex items-center gap-2 font-bold text-xl tracking-tighter">
-            <i data-lucide="shield-check" class="text-blue-400"></i> IP-NEXUS
+    <nav class="border-b border-white/5 bg-[#0b0e14]/80 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xl font-bold tracking-tight">
+                <i data-lucide="crosshair" class="text-blue-500"></i> IP-INSIGHT
+            </div>
+            <div class="flex items-center gap-4">
+                <input id="search-input" type="text" placeholder="Search any IP..." class="bg-white/5 border border-white/10 rounded-lg px-4 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition w-40 md:w-64">
+                <button onclick="lookupIP()" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-sm font-semibold transition">Lookup</button>
+            </div>
         </div>
-        <div class="hidden md:flex gap-8 text-sm text-gray-400 font-medium">
-            <a href="#home" class="hover:text-white transition">Home</a>
-            <a href="#tools" class="hover:text-white transition">Tools</a>
-            <a href="#faq" class="hover:text-white transition">FAQ</a>
-        </div>
-        <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-full text-sm font-semibold transition">Refresh Data</button>
     </nav>
 
-    <section id="home" class="max-w-4xl mx-auto pt-16 pb-24 px-6 text-center">
-        <h1 class="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight">What is my <span class="gradient-text">IP Address?</span></h1>
-        <p class="text-gray-400 text-lg mb-10 max-w-2xl mx-auto">Your public identity on the internet. Instantly detect your IPv4/IPv6 and location details.</p>
-
-        <div class="glass rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
-            <div id="loader" class="animate-pulse">Detecting connection...</div>
+    <main class="flex-grow max-w-7xl mx-auto w-full px-6 py-12">
+        <div class="grid lg:grid-cols-3 gap-8">
             
-            <div id="result" class="hidden">
-                <div class="text-sm text-blue-400 font-bold uppercase tracking-[0.2em] mb-4">Current Public IP</div>
-                <div id="ip-display" class="text-4xl md:text-6xl font-mono font-bold mb-6 break-all">0.0.0.0</div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                    <div class="bg-white/5 p-4 rounded-2xl flex items-center gap-4 border border-white/5">
-                        <i data-lucide="map-pin" class="text-purple-400"></i>
-                        <div class="text-left">
-                            <p class="text-xs text-gray-500 uppercase">Country</p>
-                            <p id="country-display" class="font-semibold text-lg">—</p>
+            <div class="lg:col-span-2 space-y-8">
+                <div class="glass-card rounded-3xl p-8 shadow-2xl">
+                    <div class="flex justify-between items-start mb-8">
+                        <div>
+                            <h2 class="stat-label">Your Connection Identity</h2>
+                            <h1 id="ip-address" class="text-4xl md:text-5xl font-mono font-bold text-white tracking-tight">Detecting...</h1>
                         </div>
+                        <span id="proxy-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">VPN/Proxy</span>
                     </div>
-                    <div class="bg-white/5 p-4 rounded-2xl flex items-center gap-4 border border-white/5">
-                        <i data-lucide="globe" class="text-green-400"></i>
-                        <div class="text-left">
-                            <p class="text-xs text-gray-500 uppercase">Country Code</p>
-                            <p id="cc-display" class="font-semibold text-lg">—</p>
-                        </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div><p class="stat-label">Location</p><p id="location" class="font-semibold">—</p></div>
+                        <div><p class="stat-label">Timezone</p><p id="timezone" class="font-semibold">—</p></div>
+                        <div><p class="stat-label">ISP / Org</p><p id="isp" class="font-semibold">—</p></div>
+                        <div><p class="stat-label">Postal</p><p id="postal" class="font-semibold">—</p></div>
                     </div>
+                </div>
+
+                <div id="map" class="shadow-2xl"></div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4 text-green-400"></i> Security Check</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between border-b border-white/5 pb-2"><span>Connection Type</span><span class="text-gray-400">Broadband</span></div>
+                        <div class="flex justify-between border-b border-white/5 pb-2"><span>Privacy Mask</span><span id="privacy-status" class="text-green-400">Clear</span></div>
+                        <div class="flex justify-between"><span>Hostname</span><span id="hostname" class="text-gray-400 text-right truncate w-32">—</span></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-6 bg-blue-600/5 border-blue-500/20">
+                    <h3 class="font-bold mb-2">Pro API Access</h3>
+                    <p class="text-xs text-gray-400 mb-4">Integrate this data into your own applications with our high-speed JSON API.</p>
+                    <button class="w-full bg-white text-black py-2 rounded-xl text-sm font-bold hover:bg-gray-200 transition">Get API Key</button>
                 </div>
             </div>
         </div>
-    </section>
+    </main>
 
-    <section id="tools" class="max-w-6xl mx-auto px-6 py-20 border-t border-white/10">
-        <h2 class="text-3xl font-bold mb-12 flex items-center gap-3">
-            <i data-lucide="layout-grid"></i> Network Utilities
-        </h2>
-        <div class="grid md:grid-cols-3 gap-6">
-            <div class="glass p-6 rounded-2xl hover:border-blue-500/50 transition cursor-pointer group">
-                <i data-lucide="search" class="mb-4 text-blue-400 group-hover:scale-110 transition"></i>
-                <h3 class="text-xl font-bold mb-2">Whois Lookup</h3>
-                <p class="text-gray-400 text-sm">Find ownership details and registration info for any domain or IP.</p>
-            </div>
-            <div class="glass p-6 rounded-2xl hover:border-blue-500/50 transition cursor-pointer group">
-                <i data-lucide="binary" class="mb-4 text-purple-400 group-hover:scale-110 transition"></i>
-                <h3 class="text-xl font-bold mb-2">Subnet Calculator</h3>
-                <p class="text-gray-400 text-sm">Calculate network masks, CIDR, and usable host ranges easily.</p>
-            </div>
-            <div class="glass p-6 rounded-2xl hover:border-blue-500/50 transition cursor-pointer group">
-                <i data-lucide="zap" class="mb-4 text-yellow-400 group-hover:scale-110 transition"></i>
-                <h3 class="text-xl font-bold mb-2">Speed Test</h3>
-                <p class="text-gray-400 text-sm">Measure your current latency and bandwidth performance.</p>
-            </div>
-        </div>
-    </section>
-
-    <section id="faq" class="max-w-3xl mx-auto px-6 py-20">
-        <h2 class="text-3xl font-bold mb-10 text-center">Frequently Asked Questions</h2>
-        <div class="space-y-4">
-            <details class="glass rounded-xl p-4 cursor-pointer">
-                <summary class="font-semibold">What is a Public IP address?</summary>
-                <p class="text-gray-400 mt-2 text-sm">A public IP address is an IP address that your home or business router receives from your ISP. It's used so that the internet can identify your network.</p>
-            </details>
-            <details class="glass rounded-xl p-4 cursor-pointer">
-                <summary class="font-semibold">Does this site store my data?</summary>
-                <p class="text-gray-400 mt-2 text-sm">No. We simply fetch the data from the API and display it in your browser. We do not log your personal IP address.</p>
-            </details>
-        </div>
-    </section>
-
-    <footer class="p-10 border-t border-white/10 text-center text-gray-500 text-sm">
-        <p>&copy; 2024 IP-Nexus. Powered by myip.com API.</p>
+    <footer class="py-10 text-center text-gray-600 text-xs border-t border-white/5">
+        <p>Data provided by IPinfo.io • Map by OpenStreetMap</p>
     </footer>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Initialize Icons
         lucide.createIcons();
 
-        // Fetch IP Data
-        async function getIPData() {
-            const loader = document.getElementById('loader');
-            const result = document.getElementById('result');
-            const ipDisp = document.getElementById('ip-display');
-            const countryDisp = document.getElementById('country-display');
-            const ccDisp = document.getElementById('cc-display');
+        // Map Initialization
+        let map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CartoDB'
+        }).addTo(map);
+        let marker = L.marker([0, 0]).addTo(map);
 
-            try {
-                const response = await fetch('https://api.myip.com');
-                const data = await response.json();
+        async function updateUI(data) {
+            document.getElementById('ip-address').innerText = data.ip;
+            document.getElementById('location').innerText = `${data.city}, ${data.region} (${data.country})`;
+            document.getElementById('timezone').innerText = data.timezone;
+            document.getElementById('isp').innerText = data.org || 'Unknown';
+            document.getElementById('postal').innerText = data.postal || 'N/A';
+            document.getElementById('hostname').innerText = data.hostname || 'None';
 
-                loader.classList.add('hidden');
-                result.classList.remove('hidden');
-                
-                ipDisp.innerText = data.ip;
-                countryDisp.innerText = data.country;
-                ccDisp.innerText = data.cc;
-            } catch (error) {
-                loader.innerText = "Error loading data. Please disable AdBlock or try again.";
-                console.error("API Error:", error);
+            // Update Map
+            if (data.loc) {
+                const [lat, lon] = data.loc.split(',');
+                const coords = [parseFloat(lat), parseFloat(lon)];
+                map.setView(coords, 12);
+                marker.setLatLng(coords);
             }
         }
 
-        getIPData();
+        async function lookupIP(target = "") {
+            const query = target || document.getElementById('search-input').value;
+            const url = query ? `https://ipinfo.io/${query}/json` : `https://ipinfo.io/json`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                updateUI(data);
+            } catch (error) {
+                alert("Could not fetch IP data. Please check the IP format.");
+            }
+        }
+
+        // Initial Load
+        lookupIP();
     </script>
 </body>
 </html>
